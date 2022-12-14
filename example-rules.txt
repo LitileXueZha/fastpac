@@ -1,0 +1,15 @@
+! Example rules
+!
+
+!-------- Whitelist -----------
+@@|http://example.org/path-1
+@@||white.list.example.org
+!proxy.example.org
+
+!----------- Proxy ------------
+|https://example.org/path-2
+||example.org
+! or (omit "|")
+https://example.org/path-2
+.example.org
+example.org
