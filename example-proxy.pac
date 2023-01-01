@@ -2,10 +2,10 @@
 
 var d = {"Whitelist":{"URL":["http://example.org/path-1"],"Host":{"org":{"example":{"list":{"white":null}}}}},"Proxy":{"URL":["https://example.org/path-2","https://example.org/path-2"],"Host":{"org":{"example":null}}}};
 function findInURL(url, URLs, i) {
-    var max = URLs.length;
-    if (i === max) {
+    if (i === URLs.length) {
         return false;
     }
+    var max = URLs[i].length;
     if (url.length > max) return findInURL(url, URLs, i + 1);
     for (var j = 0; j < max; j ++) {
         if (url[j] !== URLs[i][j]) {
@@ -26,8 +26,8 @@ function findInHost(labels, tree, i) {
     return false;
 }
 function FindProxyForURL(url, host) {
-    var hostLabels = host.split('.');
-    var i = hostLabels.length - 1;
+    var hostLabels = host.split('.'),
+        i = hostLabels.length - 1;
     if (findInURL(url, d.Whitelist.URL, 0)) {
         return 'DIRECT';
     }

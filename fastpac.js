@@ -2,8 +2,8 @@ const PROXY = 'SOCKS 127.0.0.1:1080; DIRECT';
 const OUT = 'proxy.pac';
 
 function FindProxyForURL(url, host) {
-    var hostLabels = host.split('.');
-    var i = hostLabels.length - 1;
+    var hostLabels = host.split('.'),
+        i = hostLabels.length - 1;
     if (findInURL(url, d.Whitelist.URL, 0)) {
         return 'DIRECT';
     }
@@ -19,10 +19,10 @@ function FindProxyForURL(url, host) {
     return 'DIRECT';
 }
 function findInURL(url, URLs, i) {
-    var max = URLs.length;
-    if (i === max) {
+    if (i === URLs.length) {
         return false;
     }
+    var max = URLs[i].length;
     if (url.length > max) return findInURL(url, URLs, i + 1);
     for (var j = 0; j < max; j ++) {
         if (url[j] !== URLs[i][j]) {
