@@ -1,60 +1,55 @@
+const USAGE = `
+Usage: node fastpac.js <path-to-rules.txt>
+
+Options:
+    --node  exports FindProxyForURL function
+`.trim();
+
 const PROXY = 'SOCKS 127.0.0.1:1080; DIRECT';
 const OUT = 'proxy.pac';
 
-function FindProxyForURL(url, host) {
-    var hostLabels = host.split('.'),
-        i = hostLabels.length - 1;
-    if (findInURL(url, d.Whitelist.URL, 0)) {
+function ProxyAutoConfiguration(rules, proxy) {
+    function FindProxyForURL(url, host) {
+        var labels = host.split('.'),
+            i = labels.length - 1;
+        if (findInURL(url, d.Whitelist.URL, 0)) return 'DIRECT';
+        if (findInHost(labels, d.Whitelist.Host, i)) return 'DIRECT';
+        if (findInURL(url, d.Proxy.URL, 0)) return PROXY;
+        if (findInHost(labels, d.Proxy.Host, i)) return PROXY;
         return 'DIRECT';
     }
-    if (findInHost(hostLabels, d.Whitelist.Host, i)) {
-        return 'DIRECT';
+    function findInURL(url, URLs, i) {
+        if (i === URLs.length) {
+            return false;
+        }
+        var max = URLs[i].length;
+        if (url.length > max) return findInURL(url, URLs, i + 1);
+        for (var j = 0; j < max; j ++) {
+            if (url[j] !== URLs[i][j]) {
+                return findInURL(url, URLs, i + 1);
+            }
+        }
+        return true;
     }
-    if (findInURL(url, d.Proxy.URL, 0)) {
-        return __PROXY__;
-    }
-    if (findInHost(hostLabels, d.Proxy.Host, i)) {
-        return __PROXY__;
-    }
-    return 'DIRECT';
-}
-function findInURL(url, URLs, i) {
-    if (i === URLs.length) {
+    function findInHost(labels, tree, i) {
+        var found = labels[i] in tree;
+        if (i === 0) {
+            return found;
+        }
+        if (found) {
+            tree = tree[labels[i]];
+            if (tree) return findInHost(labels, tree, i - 1);
+            if (tree === null) return true;
+        }
         return false;
     }
-    var max = URLs[i].length;
-    if (url.length > max) return findInURL(url, URLs, i + 1);
-    for (var j = 0; j < max; j ++) {
-        if (url[j] !== URLs[i][j]) {
-            return findInURL(url, URLs, i + 1);
-        }
-    }
-    return true;
-}
-function findInHost(labels, tree, i) {
-    var found = labels[i] in tree;
-    if (i === 0) {
-        return found;
-    }
-    if (found) {
-        tree = tree[labels[i]];
-        if (tree) return findInHost(labels, tree, i - 1);
-    }
-    return false;
-}
 
-function main() {
-    const fs = require('fs');
-    const raw = fs.readFileSync(process.argv[2], 'utf-8');
-    // const raw = Buffer.from(fs.readFileSync(process.argv[2], 'utf-8'), 'base64').toString();
-    const rules = raw.split('\n');
     const d = {
         Whitelist: { URL: [], Host: {} },
         Proxy: { URL: [], Host: {} },
     };
     const REG_TRIM = /^\.|\/$/g;
     const REG_REG = /(^\/|[*?])/;
-
     for (let i = 0, len = rules.length; i < len; i++) {
         let line = rules[i];
         if (!line) continue;
@@ -102,31 +97,41 @@ function main() {
         }
         return true;
     });
-
-    const out = fs.createWriteStream(OUT);
-    out.write(`'use strict';\n\nvar d = `);
-    out.write(JSON.stringify(d));
-    out.write(';\n');
-    out.write(findInURL.toString());
-    out.write('\n');
-    out.write(findInHost.toString());
-    out.write('\n');
-    out.write(FindProxyForURL.toString().replace(/__PROXY__/g, `'${PROXY}'`));
-    if (process.argv.indexOf('--node') > -1) {
-        out.write('\nexports.FindProxyForURL=FindProxyForURL');
+    function addHost(tree, host) {
+        const labels = host.split('.');
+        for (let i = labels.length - 1; i >= 0; i--) {
+            const label = labels[i];
+            if (i === 0) {
+                tree[label] = null;
+            } else {
+                if (!tree[label]) tree[label] = {};
+                tree = tree[label];
+            }
+        }
     }
+
+    const res = ['"use strict";'];
+    res.push(`\nvar PROXY = '${proxy}';`);
+    res.push(`\n${FindProxyForURL.toString()}`);
+    res.push(findInURL.toString());
+    res.push(findInHost.toString());
+    res.push(`\nvar d = ${JSON.stringify(d)};`);
+    return res.join('\n');
 }
 
-function addHost(tree, host) {
-    const labels = host.split('.');
-    for (let i = labels.length - 1; i >= 0; i--) {
-        const label = labels[i];
-        if (i === 0) {
-            tree[label] = null;
-        } else {
-            if (!tree[label]) tree[label] = {};
-            tree = tree[label];
-        }
+function main() {
+    if (process.argv.indexOf('-h') > 0) {
+        console.log(USAGE);
+        return;
+    }
+    const fs = require('fs');
+    const raw = fs.readFileSync(process.argv[2], 'utf-8');
+    // const raw = Buffer.from(fs.readFileSync(process.argv[2], 'utf-8'), 'base64').toString();
+    const rules = raw.split('\n');
+    const out = fs.createWriteStream(OUT);
+    out.write(ProxyAutoConfiguration(rules, PROXY));
+    if (process.argv.indexOf('--node') > -1) {
+        out.write('\nexports.FindProxyForURL=FindProxyForURL');
     }
 }
 
